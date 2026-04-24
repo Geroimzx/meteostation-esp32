@@ -1,0 +1,9 @@
+# ESP-IDF SDK Configuration Defaults
+# Налаштування за замовчуванням для проекту météостанції
+
+# Основні налаштування
+CONFIG_IDF_TARGET="esp32"
+CONFIG_IDF_TARGET_ESP32=y
+
+# Вихід логування
+CONFIG_LOG_DEFAULT_LEVEL=3
