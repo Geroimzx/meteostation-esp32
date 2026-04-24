@@ -1,13 +1,18 @@
 #pragma once
 
+#include "driver/gpio.h"
+
 // --- Налаштування WiFi ---
-#define WIFI_SSID "ВАШ_WIFI_SSID"
-#define WIFI_PASS "ВАШ_WIFI_ПАРОЛЬ"
+#define WIFI_SSID "LimNet_8A10"
+#define WIFI_PASS "87654321qq"
 
-// --- Налаштування HiveMQ Cloud ---
-// Обов'язково використовуйте префікс mqtts:// для TLS і порт 8883
-#define MQTT_BROKER_URI "mqtts://ВАШ-КЛАСТЕР.s1.eu.hivemq.cloud:8883"
-#define MQTT_USERNAME "ВАШ_MQTT_ЛОГІН"
-#define MQTT_PASSWORD "ВАШ_MQTT_ПАРОЛЬ"
+// --- Налаштування ThingsBoard Cloud ---
+// ThingsBoard не потребує пароля - використовуємо тільки Authentication Token
+#define MQTT_BROKER_URI "mqtt://demo.thingsboard.io"
+#define MQTT_TOKEN "NlZrFF9T7AIy5lFK7C97"
+#define MQTT_TOPIC "v1/devices/me/telemetry"
 
-#define MQTT_TOPIC "meteo/sensors"
+// --- Налаштування GPIO ---
+#define STATUS_LED_GPIO GPIO_NUM_2
+#define NTC_POWER_PIN GPIO_NUM_4
+#define SLEEP_TIME_MIN (5)

@@ -4,7 +4,6 @@
 #include "esp_wifi.h"
 #include "nvs_flash.h"
 #include "mqtt_client.h"
-#include "esp_crt_bundle.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include <cstdio>
@@ -35,7 +34,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data) {
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
     if (event_id == MQTT_EVENT_CONNECTED) {
-        ESP_LOGI(TAG, "MQTT Connected to HiveMQ");
+        ESP_LOGI(TAG, "MQTT Connected to ThingsBoard");
         xEventGroupSetBits(s_network_event_group, MQTT_CONNECTED_BIT);
     } else if (event_id == MQTT_EVENT_DISCONNECTED) {
         ESP_LOGW(TAG, "MQTT Disconnected");
@@ -80,14 +79,12 @@ bool NetworkService::Connect() {
         return false;
     }
 
-    // 3. Ініціалізація MQTT
+    // 3. Ініціалізація MQTT для ThingsBoard
+    // ThingsBoard використовує token у полі username, без пароля
     esp_mqtt_client_config_t mqtt_cfg = {};
     mqtt_cfg.broker.address.uri = MQTT_BROKER_URI;
-    mqtt_cfg.credentials.username = MQTT_USERNAME;
-    mqtt_cfg.credentials.authentication.password = MQTT_PASSWORD;
-    
-    // ВАЖЛИВО: Підключаємо системний бандл сертифікатів для TLS (HiveMQ вимагає цього)
-    mqtt_cfg.broker.verification.crt_bundle_attach = esp_crt_bundle_attach;
+    mqtt_cfg.credentials.username = MQTT_TOKEN;
+    mqtt_cfg.credentials.authentication.password = NULL; // ThingsBoard не потребує пароля
 
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL);
@@ -106,22 +103,30 @@ bool NetworkService::Connect() {
 bool NetworkService::PublishBuffer(SensorData* buffer, int count) {
     if (!mqtt_client) return false;
 
-    bool all_success = true;
+    // ThingsBoard очікує пакету даних у форматі:
+    // {"temperature1": 25.5, "temperature2": 24.0}
+    char payload[512];
+    int pos = snprintf(payload, sizeof(payload), "{");
+    
     for (int i = 0; i < count; i++) {
-        // Формуємо JSON рядок
-        char payload[64];
-        snprintf(payload, sizeof(payload), "{\"t1\":%.2f, \"t2\":%.2f}", buffer[i].temp1, buffer[i].temp2);
-
-        // Відправляємо (QoS 1 гарантує доставку)
-        int msg_id = esp_mqtt_client_publish(mqtt_client, MQTT_TOPIC, payload, 0, 1, 0);
-        if (msg_id == -1) {
-            ESP_LOGE(TAG, "Failed to publish data %d", i);
-            all_success = false;
-        } else {
-            ESP_LOGI(TAG, "Published: %s", payload);
-        }
+        pos += snprintf(payload + pos, sizeof(payload) - pos,
+            "\"temp1_%d\":%.2f, \"temp2_%d\":%.2f%s",
+            i, buffer[i].temp1, i, buffer[i].temp2,
+            (i == count - 1 ? "" : ", "));
     }
-    return all_success;
+    
+    snprintf(payload + pos, sizeof(payload) - pos, "}");
+
+    // Відправляємо з QoS 1 (гарантована доставка)
+    int msg_id = esp_mqtt_client_publish(mqtt_client, MQTT_TOPIC, payload, 0, 1, 0);
+    
+    if (msg_id == -1) {
+        ESP_LOGE(TAG, "Failed to publish buffer with %d entries", count);
+        return false;
+    } else {
+        ESP_LOGI(TAG, "Published %d measurements: %s", count, payload);
+        return true;
+    }
 }
 
 void NetworkService::Disconnect() {
@@ -132,6 +137,8 @@ void NetworkService::Disconnect() {
     }
     esp_wifi_stop();
     esp_wifi_deinit();
-    vEventGroupDelete(s_network_event_group);
+    if (s_network_event_group) {
+        vEventGroupDelete(s_network_event_group);
+    }
     ESP_LOGI(TAG, "Network disconnected. Ready for sleep.");
 }
