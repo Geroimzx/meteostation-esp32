@@ -8,7 +8,7 @@
 
 // --- Налаштування ThingsBoard Cloud ---
 // ThingsBoard не потребує пароля - використовуємо тільки Authentication Token
-#define MQTT_BROKER_URI "mqtt://demo.thingsboard.io"
+#define MQTT_BROKER_URI "mqtt://thingsboard.cloud"
 #define MQTT_TOKEN "NlZrFF9T7AIy5lFK7C97"
 #define MQTT_TOPIC "v1/devices/me/telemetry"
 

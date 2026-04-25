@@ -103,28 +103,17 @@ bool NetworkService::Connect() {
 bool NetworkService::PublishBuffer(SensorData* buffer, int count) {
     if (!mqtt_client) return false;
 
-    // ThingsBoard очікує пакету даних у форматі:
-    // {"temperature1": 25.5, "temperature2": 24.0}
-    char payload[512];
-    int pos = snprintf(payload, sizeof(payload), "{");
-    
-    for (int i = 0; i < count; i++) {
-        pos += snprintf(payload + pos, sizeof(payload) - pos,
-            "\"temp1_%d\":%.2f, \"temp2_%d\":%.2f%s",
-            i, buffer[i].temp1, i, buffer[i].temp2,
-            (i == count - 1 ? "" : ", "));
-    }
-    
-    snprintf(payload + pos, sizeof(payload) - pos, "}");
+    char payload[128];
+    // Оскільки ми відправляємо по 1 запису (count завжди 1), робимо простий JSON
+    snprintf(payload, sizeof(payload), "{\"temp1\":%.2f, \"temp2\":%.2f}", buffer[0].temp1, buffer[0].temp2);
 
-    // Відправляємо з QoS 1 (гарантована доставка)
     int msg_id = esp_mqtt_client_publish(mqtt_client, MQTT_TOPIC, payload, 0, 1, 0);
     
     if (msg_id == -1) {
-        ESP_LOGE(TAG, "Failed to publish buffer with %d entries", count);
+        ESP_LOGE(TAG, "Failed to publish");
         return false;
     } else {
-        ESP_LOGI(TAG, "Published %d measurements: %s", count, payload);
+        ESP_LOGI(TAG, "Published: %s", payload);
         return true;
     }
 }
